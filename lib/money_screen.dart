@@ -276,105 +276,148 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 "Add Transaction",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setDialogState(() => isExpense = true),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isExpense
-                                  ? Colors.red
-                                  : Colors.grey.shade200,
-                              borderRadius: const BorderRadius.horizontal(
-                                left: Radius.circular(8),
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              "Pengeluaran",
-                              style: TextStyle(
-                                color: isExpense ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setDialogState(() => isExpense = false),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: !isExpense
-                                  ? Colors.green
-                                  : Colors.grey.shade200,
-                              borderRadius: const BorderRadius.horizontal(
-                                right: Radius.circular(8),
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              "Pemasukkan",
-                              style: TextStyle(
-                                color: !isExpense ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setDialogState(() => isExpense = true),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isExpense ? Colors.red.shade400 : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  "Expense",
+                                  style: TextStyle(
+                                    color: isExpense ? Colors.white : Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              )
+                            )
                           ),
-                        ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setDialogState(() => isExpense = false),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: !isExpense ? Colors.green.shade500 : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  "Income",
+                                  style: TextStyle(
+                                    color: !isExpense ? Colors.white : Colors.grey,
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                ),
+                              ),
+                            )
+                          )
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
+                    TextField(
+                      controller: _amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: "Nominal",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+
+                     TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
                       labelText: "Nama Transaksi",
                       border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
-                  TextField(
-                    controller: _amountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Nominal",
-                      border: OutlineInputBorder(),
+                    TextField(
+                      controller: _categoryController,
+                      decoration: const InputDecoration(
+                        labelText: "Category",
+                      )
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 16),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        "Date: ${DateFormat('yyyy-MM-dd').format(_pickedDate)}"
+                      ),
+                      trailing: const Icon(
+                        Icons.calendar_today,
+                        color: Color(0xFF386BF6),
+                      ),
+                      onTap: () async {
+                        await _selectDate(context, setDialogState);
+                      },
+                    )
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(context), 
                   child: const Text(
-                    "Batal",
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                    "Cancel",
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  )
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF386BF6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)
+                    )
                   ),
-                  onPressed: () {
-                    Navigator.pop(context);
-
-                    _showSuccessDialog();
+                  onPressed: () async {
+                    if (_titleController.text.isNotEmpty && _amountController.text.isNotEmpty && _categoryController.text.isNotEmpty) {
+                      await DatabaseHelper().insertTransaction(
+                        TransactionItem(title: _titleController.text,
+                          amount: int.parse(_amountController.text), 
+                          isExpense: isExpense, 
+                          date: DateFormat('yyyy-MM-dd').format(_pickedDate), 
+                          category: _categoryController.text.isEmpty ? "Lainnya" : _categoryController.text,
+                        )
+                      );
+                      if (context.mounted) Navigator.pop(context);
+                      _loadData();
+                      _showSuccessDialog();
+                    }
                   },
                   child: const Text(
-                    "Simpan",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
+                    "Save",
+                    style: TextStyle(
+                      color: Colors.white,
+                    ),
+                  )
+                )
               ],
             );
           },
