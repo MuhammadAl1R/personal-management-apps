@@ -31,8 +31,23 @@ class _MoneyScreenState extends State<MoneyScreen> {
   bool isLoading = true;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
   bool isExpense = true;
   DateTime _pickedDate = DateTime.now();
+
+  Future<void> _selectDate(BuildContext context, StateSetter setDialogState) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _pickedDate, 
+      firstDate: DateTime(2000), 
+      lastDate: DateTime(2100)
+      );
+      if (picked != null && picked != _pickedDate) {
+        setDialogState(() {
+          _pickedDate = picked;
+        });
+      }
+  }
 
   String formatRupiah(int amount) {
     return NumberFormat.currency(
@@ -244,6 +259,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   void _showAddTransactionDialog() {
     _titleController.clear();
     _amountController.clear();
+    _categoryController.clear();
     isExpense = true;
     _pickedDate = DateTime.now();
 
@@ -254,10 +270,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
           builder: (conte, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadiusGeometry.circular(20),
+                borderRadius: BorderRadius.circular(24),
               ),
               title: const Text(
-                "Catat Keuangan",
+                "Add Transaction",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               content: Column(
@@ -350,7 +366,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     backgroundColor: const Color(0xFF386BF6),
                   ),
                   onPressed: () {
-                    print("Tombol Simpan Ditekan");
+                    Navigator.pop(context);
+
+                    _showSuccessDialog();
                   },
                   child: const Text(
                     "Simpan",
@@ -360,6 +378,102 @@ class _MoneyScreenState extends State<MoneyScreen> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(60),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 40),
+                height: 270,
+                width: 270,
+                padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24)
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Berhasil!",
+                      style: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 16,),
+                    Text(
+                      "Transaksi berhasil disimpan!",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 24,),
+                    SizedBox(
+                      width: 100,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF386BF6),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24)
+                          ),
+                          elevation: 0
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          "OK!",
+                          style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16
+                          )
+                        )
+                        ),
+                    )
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 0,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF386BF6),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF386BF6).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      )
+                    ]
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                )
+                )
+            ],
+          ),
         );
       },
     );
