@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:task_management/database_helper.dart';
 import 'package:task_management/transaction_model.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class MoneyScreen extends StatefulWidget {
   const MoneyScreen({super.key});
@@ -34,19 +35,25 @@ class _MoneyScreenState extends State<MoneyScreen> {
   final TextEditingController _categoryController = TextEditingController();
   bool isExpense = true;
   DateTime _pickedDate = DateTime.now();
+  List<FlSpot> _chartSpots = const [FlSpot(0,0)];
+  double _chartMaxY = 100000;
 
-  Future<void> _selectDate(BuildContext context, StateSetter setDialogState) async {
+
+  Future<void> _selectDate(
+    BuildContext context,
+    StateSetter setDialogState,
+  ) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _pickedDate, 
-      firstDate: DateTime(2000), 
-      lastDate: DateTime(2100)
-      );
-      if (picked != null && picked != _pickedDate) {
-        setDialogState(() {
-          _pickedDate = picked;
-        });
-      }
+      initialDate: _pickedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != _pickedDate) {
+      setDialogState(() {
+        _pickedDate = picked;
+      });
+    }
   }
 
   String formatRupiah(int amount) {
@@ -83,12 +90,41 @@ class _MoneyScreenState extends State<MoneyScreen> {
         balance = balance + item.amount;
       }
     }
-
+    _generateChartData(data);
     setState(() {
       _transactions = data;
       totalBalance = balance;
       isLoading = false;
     });
+  }
+
+  void _generateChartData(List<TransactionItem> data) {
+    if (data.isEmpty) {
+      _chartSpots = const [
+        FlSpot(0, 0), FlSpot(1, 0), FlSpot(2, 0), FlSpot(3, 0),
+        FlSpot(4, 0), FlSpot(5, 0), FlSpot(6, 0)
+      ];
+      _chartMaxY = 100000;
+      return;
+    } 
+
+    List<FlSpot> spots = [];
+    double maxY = 0;
+
+    var recentData = data.take(7).toList().reversed.toList();
+
+    for (int i = 0; i < recentData.length; i++) {
+      double amount = recentData[i].amount.toDouble();
+      if (amount > maxY) maxY = amount;
+      spots.add(FlSpot(i.toDouble(), amount));
+    }
+
+    for (int i = recentData.length; i < 7;i++) {
+      spots.add(FlSpot(i.toDouble(),0));
+    }
+
+    _chartSpots = spots;
+    _chartMaxY = maxY == 0 ? 100000 : maxY + (maxY * 0.2);
   }
 
   @override
@@ -213,21 +249,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       ],
                     ),
                     SizedBox(height: 16),
-                    Container(
-                      height: 180,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF386BF6).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.blue.shade100),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "Area Grafik Keuangan",
-                          style: TextStyle(color: Colors.blueGrey.shade300),
-                        ),
-                      ),
-                    ),
+                    _buildChartSection()
                   ],
                 ),
               ),
@@ -289,44 +311,58 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         children: [
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => setDialogState(() => isExpense = true),
+                              onTap: () =>
+                                  setDialogState(() => isExpense = true),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isExpense ? Colors.red.shade400 : Colors.transparent,
+                                  color: isExpense
+                                      ? Colors.red.shade400
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   "Expense",
                                   style: TextStyle(
-                                    color: isExpense ? Colors.white : Colors.grey,
+                                    color: isExpense
+                                        ? Colors.white
+                                        : Colors.grey,
                                     fontWeight: FontWeight.bold,
                                   ),
-                                )
-                              )
-                            )
+                                ),
+                              ),
+                            ),
                           ),
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => setDialogState(() => isExpense = false),
+                              onTap: () =>
+                                  setDialogState(() => isExpense = false),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: !isExpense ? Colors.green.shade500 : Colors.transparent,
+                                  color: !isExpense
+                                      ? Colors.green.shade500
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   "Income",
                                   style: TextStyle(
-                                    color: !isExpense ? Colors.white : Colors.grey,
-                                    fontWeight: FontWeight.bold
+                                    color: !isExpense
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                            )
-                          )
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -341,14 +377,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
 
-                     TextField(
+                    TextField(
                       controller: _titleController,
                       decoration: const InputDecoration(
-                      labelText: "Nama Transaksi",
-                      border: OutlineInputBorder(),
+                        labelText: "Nama Transaksi",
+                        border: OutlineInputBorder(),
                       ),
                     ),
 
@@ -356,9 +392,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
                     TextField(
                       controller: _categoryController,
-                      decoration: const InputDecoration(
-                        labelText: "Category",
-                      )
+                      decoration: const InputDecoration(labelText: "Category"),
                     ),
 
                     const SizedBox(height: 16),
@@ -366,7 +400,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        "Date: ${DateFormat('yyyy-MM-dd').format(_pickedDate)}"
+                        "Date: ${DateFormat('yyyy-MM-dd').format(_pickedDate)}",
                       ),
                       trailing: const Icon(
                         Icons.calendar_today,
@@ -375,36 +409,39 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       onTap: () async {
                         await _selectDate(context, setDialogState);
                       },
-                    )
+                    ),
                   ],
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context), 
+                  onPressed: () => Navigator.pop(context),
                   child: const Text(
                     "Cancel",
-                    style: TextStyle(
-                      color: Colors.grey,
-                    ),
-                  )
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF386BF6),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)
-                    )
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () async {
-                    if (_titleController.text.isNotEmpty && _amountController.text.isNotEmpty && _categoryController.text.isNotEmpty) {
+                    if (_titleController.text.isNotEmpty &&
+                        _amountController.text.isNotEmpty &&
+                        _categoryController.text.isNotEmpty) {
                       await DatabaseHelper().insertTransaction(
-                        TransactionItem(title: _titleController.text,
-                          amount: int.parse(_amountController.text), 
-                          isExpense: isExpense, 
-                          date: DateFormat('yyyy-MM-dd').format(_pickedDate), 
-                          category: _categoryController.text.isEmpty ? "Lainnya" : _categoryController.text,
-                        )
+                        TransactionItem(
+                          title: _titleController.text,
+                          amount: int.parse(_amountController.text),
+                          isExpense: isExpense,
+                          date: DateFormat('yyyy-MM-dd').format(_pickedDate),
+                          category: _categoryController.text.isEmpty
+                              ? "Lainnya"
+                              : _categoryController.text,
+                        ),
                       );
                       if (context.mounted) Navigator.pop(context);
                       _loadData();
@@ -413,11 +450,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   },
                   child: const Text(
                     "Save",
-                    style: TextStyle(
-                      color: Colors.white,
-                    ),
-                  )
-                )
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
               ],
             );
           },
@@ -445,7 +480,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(24)
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -458,7 +493,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 16,),
+                    const SizedBox(height: 16),
                     Text(
                       "Transaksi berhasil disimpan!",
                       style: TextStyle(
@@ -466,7 +501,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(height: 24,),
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: 100,
                       child: ElevatedButton(
@@ -474,9 +509,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           backgroundColor: const Color(0xFF386BF6),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24)
+                            borderRadius: BorderRadius.circular(24),
                           ),
-                          elevation: 0
+                          elevation: 0,
                         ),
                         onPressed: () {
                           Navigator.pop(context);
@@ -484,11 +519,13 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         child: const Text(
                           "OK!",
                           style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16
-                          )
-                        )
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                    )
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -505,20 +542,136 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         color: const Color(0xFF386BF6).withOpacity(0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
-                      )
-                    ]
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.check_rounded,
                     color: Colors.white,
                     size: 48,
                   ),
-                )
-                )
+                ),
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildChartSection() {
+    return Container(
+      height: 220,
+      width: double.infinity,
+      padding: const EdgeInsets.only(right: 16, top: 24, left: 0, bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+          ),
+      child: LineChart(_mainChartData()),
+    );
+  }
+
+  LineChartData _mainChartData() {
+    return LineChartData(
+      gridData: const FlGridData(show: false),
+      borderData: FlBorderData(show: false),
+      titlesData: FlTitlesData(
+        show: true,
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 30,
+            interval: 1,
+            getTitlesWidget: _bottomTitleWidgets,
+          ),
+        ),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            interval: _chartMaxY / 4,
+            getTitlesWidget: _leftTitleWidgets,
+            reservedSize: 40,
+          ),
+        ),
+      ),
+      minX: 0,
+      maxX: 6,
+      minY: 0,
+      maxY: _chartMaxY,
+
+      lineBarsData: [
+        LineChartBarData(
+          spots: _chartSpots,
+          isCurved: true,
+          color: const Color(0xFF386BF6),
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: const FlDotData(show: false),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF386BF6).withOpacity(0.3),
+                Colors.white.withOpacity(0),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _bottomTitleWidgets(double value, TitleMeta meta) {
+    const style = TextStyle(
+      color: Colors.grey,
+      fontWeight: FontWeight.bold,
+      fontSize: 10,
+    );
+    Widget text;
+    switch (value.toInt()) {
+      case 0:
+        text = const Text('JAN', style: style);
+        break;
+      case 2:
+        text = const Text('MAR', style: style);
+        break;
+      case 4:
+        text = const Text('MAY', style: style);
+        break;
+      case 6:
+        text = const Text('JUL', style: style);
+        break;
+      default:
+        text = const Text('', style: style);
+        break;
+    }
+    return SideTitleWidget(child: text, meta: meta);
+  }
+
+  Widget _leftTitleWidgets(double value, TitleMeta meta) {
+    if (value == meta.max || value == meta.min) return Container();
+    const style = TextStyle(
+      color: Colors.grey,
+      fontWeight: FontWeight.bold,
+      fontSize: 10,
+    );
+    String text;
+    if (value >= 1000000) {
+      text = '${(value/1000000).toStringAsFixed(1)}M';
+    }else if (value >=1000) {
+      text = '${(value/1000).toStringAsFixed(0)}k';
+    } else {
+      text = value.toStringAsFixed(0);
+    }
+    return Text(
+      text,
+      style: style,
+      textAlign: TextAlign.right,
     );
   }
 }
