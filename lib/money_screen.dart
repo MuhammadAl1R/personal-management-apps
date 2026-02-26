@@ -37,7 +37,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   DateTime _pickedDate = DateTime.now();
   List<FlSpot> _chartSpots = const [FlSpot(0,0)];
   double _chartMaxY = 100000;
-
+  String _selectedFilter = "Annually";
 
   Future<void> _selectDate(
     BuildContext context,
@@ -47,7 +47,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       context: context,
       initialDate: _pickedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != _pickedDate) {
       setDialogState(() {
@@ -79,20 +79,41 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
   Future<void> _loadData() async {
     setState(() => isLoading = true);
-    final data = await DatabaseHelper().getTransactions();
 
+    final alldata = await DatabaseHelper().getTransactions();
+    List<TransactionItem> filteredData = [];
     int balance = 0;
+    DateTime now = DateTime.now();
 
-    for (var item in data) {
-      if (item.isExpense) {
-        balance = balance - item.amount;
+    for (var item in alldata) {
+      DateTime itemDate = DateFormat('yyyy-MM-dd').parse(item.date);
+      bool isMatch = false;
+
+      if (_selectedFilter == "Daily") {
+        if (itemDate.year == now.year && itemDate.month == now.month && itemDate.day == now.day) {
+          isMatch = true;
+        }
+      } else if(_selectedFilter == "Weekly") {
+        if (now.difference(itemDate).inDays <= 7) {
+          isMatch = true;
+        }
       } else {
-        balance = balance + item.amount;
+        isMatch = true;
       }
+
+      if (isMatch) {
+        filteredData.add(item);
+        if (item.isExpense) {
+          balance = balance - item.amount;
+        } else {
+          balance = balance + item.amount;
+        }
+      }
+      
     }
-    _generateChartData(data);
+    _generateChartData(filteredData);
     setState(() {
-      _transactions = data;
+      _transactions = filteredData;
       totalBalance = balance;
       isLoading = false;
     });
@@ -240,9 +261,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           ),
                           child: Row(
                             children: [
-                              _buildFilterButton("Daily", false),
-                              _buildFilterButton("Weekly", false),
-                              _buildFilterButton("Annually", true),
+                              _buildFilterButton("Daily"),
+                              _buildFilterButton("Weekly"),
+                              _buildFilterButton("Annually"),
                             ],
                           ),
                         ),
@@ -257,24 +278,34 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
-  Widget _buildFilterButton(String text, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: isActive
-            ? [BoxShadow(color: Colors.black12, blurRadius: 4)]
-            : null,
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          color: isActive ? Colors.black : Colors.grey,
+  Widget _buildFilterButton(String text) {
+    bool isActive = _selectedFilter == text;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFilter = text;
+        });
+        _loadData();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isActive
+              ? [BoxShadow(color: Colors.black12, blurRadius: 4)]
+              : null,
         ),
-      ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            color: isActive ? Colors.black : Colors.grey,
+          ),
+        ),
+      )
     );
   }
 
