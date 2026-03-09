@@ -35,9 +35,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
   final TextEditingController _categoryController = TextEditingController();
   bool isExpense = true;
   DateTime _pickedDate = DateTime.now();
-  List<FlSpot> _chartSpots = const [FlSpot(0,0)];
+  List<FlSpot> _chartSpots = const [FlSpot(0, 0)];
   double _chartMaxY = 100000;
+  double _chartMaxX = 6;
   String _selectedFilter = "Annually";
+  List<String> _chartXLabels = [];
 
   Future<void> _selectDate(
     BuildContext context,
@@ -51,7 +53,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
     if (picked != null && picked != _pickedDate) {
       setDialogState(() {
-        _pickedDate = picked;
+        _pickedDate = DateTime(
+          picked.year,
+          picked.month,
+          picked.day,
+          DateTime.now().hour,
+          DateTime.now().minute,
+          DateTime.now().second,
+        );
       });
     }
   }
@@ -81,71 +90,148 @@ class _MoneyScreenState extends State<MoneyScreen> {
     setState(() => isLoading = true);
 
     final alldata = await DatabaseHelper().getTransactions();
-    List<TransactionItem> filteredData = [];
-    int balance = 0;
-    DateTime now = DateTime.now();
+
+    alldata.sort((a, b) {
+      DateTime dateA = DateTime.parse(a.date);
+      DateTime dateB = DateTime.parse(b.date);
+      return dateA.compareTo(dateB);
+    });
+
+    int Saldo = 0;
+
+    List<Map<String, dynamic>> riwayatSaldo = [];
 
     for (var item in alldata) {
-      DateTime itemDate = DateFormat('yyyy-MM-dd').parse(item.date);
+      if (item.isExpense) {
+        Saldo -= item.amount;
+      } else {
+        Saldo += item.amount;
+      }
+
+      riwayatSaldo.add({'item': item, 'saldo_temporary': Saldo});
+    }
+
+    List<TransactionItem> ListFilter = [];
+    DateTime now = DateTime.now();
+
+    for (var record in riwayatSaldo) {
+      TransactionItem item = record['item'];
+      DateTime itemDate = DateTime.parse(item.date);
       bool isMatch = false;
 
       if (_selectedFilter == "Daily") {
-        if (itemDate.year == now.year && itemDate.month == now.month && itemDate.day == now.day) {
+        if (itemDate.year == now.year &&
+            itemDate.month == now.month &&
+            itemDate.day == now.day) {
           isMatch = true;
         }
-      } else if(_selectedFilter == "Weekly") {
-        if (now.difference(itemDate).inDays <= 7) {
+      } else if (_selectedFilter == "Weekly") {
+        DateTime startOfWeek = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(Duration(days: now.weekday - 1));
+        DateTime endOfWeek = startOfWeek.add(const Duration(days: 7));
+        if (itemDate.isAfter(
+              startOfWeek.subtract(const Duration(seconds: 1)),
+            ) &&
+            itemDate.isBefore(endOfWeek)) {
           isMatch = true;
         }
       } else {
-        isMatch = true;
+        if (itemDate.year == now.year) {
+          isMatch = true;
+        }
       }
 
       if (isMatch) {
-        filteredData.add(item);
-        if (item.isExpense) {
-          balance = balance - item.amount;
-        } else {
-          balance = balance + item.amount;
-        }
+        ListFilter.add(item);
       }
-      
     }
-    _generateChartData(filteredData);
+
     setState(() {
-      _transactions = filteredData;
-      totalBalance = balance;
+      _transactions = ListFilter.reversed.toList();
+      totalBalance = Saldo;
+      _chartXLabels.clear();
+      _generateChartData(riwayatSaldo);
       isLoading = false;
     });
   }
 
-  void _generateChartData(List<TransactionItem> data) {
-    if (data.isEmpty) {
-      _chartSpots = const [
-        FlSpot(0, 0), FlSpot(1, 0), FlSpot(2, 0), FlSpot(3, 0),
-        FlSpot(4, 0), FlSpot(5, 0), FlSpot(6, 0)
-      ];
-      _chartMaxY = 100000;
-      return;
-    } 
-
+  void _generateChartData(List<Map<String, dynamic>> riwayatSeluruhnya) {
     List<FlSpot> spots = [];
     double maxY = 0;
+    DateTime now = DateTime.now();
 
-    var recentData = data.take(7).toList().reversed.toList();
+    if (_selectedFilter == "Annually") {
+      _chartMaxX = 11;
+      for (int i = 1; i <= 12; i++) {
+        DateTime nextMonth = (i == 12)
+            ? DateTime(now.year + 1, 1, 1)
+            : DateTime(now.year, i + 1, 1);
+        int saldoPoin = 0;
+        var past = riwayatSeluruhnya.where((r) {
+          return DateTime.parse(r['item'].date).isBefore(nextMonth);
+        });
+        if (past.isNotEmpty) saldoPoin = past.last['saldo_temporary'];
 
-    for (int i = 0; i < recentData.length; i++) {
-      double amount = recentData[i].amount.toDouble();
-      if (amount > maxY) maxY = amount;
-      spots.add(FlSpot(i.toDouble(), amount));
-    }
+        double y = saldoPoin.toDouble();
+        if (y > maxY) maxY = y;
+        spots.add(FlSpot((i - 1).toDouble(), y));
+        _chartXLabels.add(DateFormat('MMM').format(DateTime(now.year, i)));
+      }
+    } else if (_selectedFilter == "Weekly") {
+      _chartMaxX = 6;
+      DateTime startOfWeek = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: now.weekday - 1));
+      for (int i = 0; i < 7; i++) {
+        DateTime myDay = startOfWeek.add(Duration(days: i));
+        DateTime nextDay = myDay.add(const Duration(days: 1));
 
-    for (int i = recentData.length; i < 7;i++) {
-      spots.add(FlSpot(i.toDouble(),0));
+        int saldoPoin = 0;
+        var past = riwayatSeluruhnya.where((r) {
+          return DateTime.parse(r['item'].date).isBefore(nextDay);
+        });
+        if (past.isNotEmpty) saldoPoin = past.last['saldo_temporary'];
+
+        double y = saldoPoin.toDouble();
+        if (y > maxY) maxY = y;
+        spots.add(FlSpot(i.toDouble(), y));
+        _chartXLabels.add(DateFormat('EEE').format(myDay));
+      }
+    } else if (_selectedFilter == "Daily") {
+      _chartMaxX = 6;
+      DateTime startOfDay = DateTime(now.year, now.month, now.day);
+      for (int i = 0; i <= 6; i++) {
+        DateTime limitTime = startOfDay.add(Duration(hours: i * 4));
+
+        int saldoPoin = 0;
+        var past = riwayatSeluruhnya.where((r) {
+          return DateTime.parse(
+            r['item'].date,
+          ).isBefore(limitTime.add(const Duration(seconds: 1)));
+        });
+        if (past.isNotEmpty) saldoPoin = past.last['saldo_temporary'];
+
+        double y = saldoPoin.toDouble();
+        if (y > maxY) maxY = y;
+        spots.add(FlSpot(i.toDouble(), y));
+
+        if (i == 6) {
+          _chartXLabels.add("24:00");
+        } else {
+          _chartXLabels.add(DateFormat('HH:mm').format(limitTime));
+        }
+      }
     }
 
     _chartSpots = spots;
-    _chartMaxY = maxY == 0 ? 100000 : maxY + (maxY * 0.2);
+    _chartMaxY = maxY == 0
+        ? 100000
+        : maxY + (maxY * 0.2); // Add some visual headroom
   }
 
   @override
@@ -270,7 +356,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       ],
                     ),
                     SizedBox(height: 16),
-                    _buildChartSection()
+                    _buildChartSection(),
                   ],
                 ),
               ),
@@ -305,7 +391,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
             color: isActive ? Colors.black : Colors.grey,
           ),
         ),
-      )
+      ),
     );
   }
 
@@ -468,7 +554,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           title: _titleController.text,
                           amount: int.parse(_amountController.text),
                           isExpense: isExpense,
-                          date: DateFormat('yyyy-MM-dd').format(_pickedDate),
+                          date: DateFormat(
+                            'yyyy-MM-dd HH:mm:ss',
+                          ).format(_pickedDate),
                           category: _categoryController.text.isEmpty
                               ? "Lainnya"
                               : _categoryController.text,
@@ -592,21 +680,62 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
   Widget _buildChartSection() {
     return Container(
-      height: 220,
+      height: 250,
       width: double.infinity,
-      padding: const EdgeInsets.only(right: 16, top: 24, left: 0, bottom: 12),
+      padding: const EdgeInsets.only(right: 20, top: 30, left: 10, bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
+        ],
+      ),
       child: LineChart(_mainChartData()),
     );
   }
 
   LineChartData _mainChartData() {
     return LineChartData(
-      gridData: const FlGridData(show: false),
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: false,
+        horizontalInterval: _chartMaxY / 4,
+        getDrawingHorizontalLine: (value) {
+          return FlLine(
+            color: Colors.grey.withOpacity(0.15),
+            strokeWidth: 1,
+            dashArray: [5, 5],
+          );
+        },
+      ),
       borderData: FlBorderData(show: false),
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (touchedSpot) => const Color(0xFF1E293B),
+          getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+            return touchedBarSpots.map((barSpot) {
+              final flSpot = barSpot;
+              return LineTooltipItem(
+                NumberFormat.currency(
+                  locale: 'id_ID',
+                  symbol: 'Rp',
+                  decimalDigits: 0,
+                ).format(flSpot.y),
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              );
+            }).toList();
+          },
+        ),
+        handleBuiltInTouches: true,
+      ),
       titlesData: FlTitlesData(
         show: true,
         rightTitles: const AxisTitles(
@@ -624,14 +753,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            interval: _chartMaxY / 4,
+            interval: _chartMaxY / 4 == 0 ? 1 : _chartMaxY / 4,
             getTitlesWidget: _leftTitleWidgets,
-            reservedSize: 40,
+            reservedSize: 45,
           ),
         ),
       ),
       minX: 0,
-      maxX: 6,
+      maxX: _chartMaxX,
       minY: 0,
       maxY: _chartMaxY,
 
@@ -639,17 +768,30 @@ class _MoneyScreenState extends State<MoneyScreen> {
         LineChartBarData(
           spots: _chartSpots,
           isCurved: true,
+          curveSmoothness: 0.35,
           color: const Color(0xFF386BF6),
-          barWidth: 3,
+          barWidth: 4,
           isStrokeCapRound: true,
-          dotData: const FlDotData(show: false),
+          dotData: FlDotData(
+            show: true,
+            getDotPainter: (spot, percent, barData, index) {
+              return FlDotCirclePainter(
+                radius: 4,
+                color: Colors.white,
+                strokeWidth: 2,
+                strokeColor: const Color(0xFF386BF6),
+              );
+            },
+          ),
           belowBarData: BarAreaData(
             show: true,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF386BF6).withOpacity(0.3),
-                Colors.white.withOpacity(0),
+                const Color(0xFF386BF6).withOpacity(0.25),
+                const Color(0xFF386BF6).withOpacity(0.0),
               ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
           ),
         ),
@@ -663,25 +805,17 @@ class _MoneyScreenState extends State<MoneyScreen> {
       fontWeight: FontWeight.bold,
       fontSize: 10,
     );
-    Widget text;
-    switch (value.toInt()) {
-      case 0:
-        text = const Text('JAN', style: style);
-        break;
-      case 2:
-        text = const Text('MAR', style: style);
-        break;
-      case 4:
-        text = const Text('MAY', style: style);
-        break;
-      case 6:
-        text = const Text('JUL', style: style);
-        break;
-      default:
-        text = const Text('', style: style);
-        break;
+    int index = value.toInt();
+    String text = "";
+
+    if (index >= 0 && index < _chartXLabels.length) {
+      text = _chartXLabels[index];
     }
-    return SideTitleWidget(child: text, meta: meta);
+
+    return SideTitleWidget(
+      child: Text(text, style: style),
+      meta: meta,
+    );
   }
 
   Widget _leftTitleWidgets(double value, TitleMeta meta) {
@@ -693,16 +827,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
     String text;
     if (value >= 1000000) {
-      text = '${(value/1000000).toStringAsFixed(1)}M';
-    }else if (value >=1000) {
-      text = '${(value/1000).toStringAsFixed(0)}k';
+      text = '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      text = '${(value / 1000).toStringAsFixed(0)}k';
     } else {
       text = value.toStringAsFixed(0);
     }
-    return Text(
-      text,
-      style: style,
-      textAlign: TextAlign.right,
-    );
+    return Text(text, style: style, textAlign: TextAlign.right);
   }
 }
