@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:task_management/money_screen.dart';
 import 'task_screen.dart';
 
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -15,8 +14,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final Color _primaryBlue = const Color(0xFF386BF6);
 
   // Daftar Halaman
-  final List<Widget> _pages = [
-    const Center(child: Text("Halaman Home")),
+  List<Widget> _buildPages() => [
+    _buildHomeContent(),
     const TaskScreen(),
     const MoneyScreen(),
     const Center(child: Text("Halaman Schedule")),
@@ -29,11 +28,19 @@ class _HomeScreenState extends State<HomeScreen> {
       return 'Selamat Pagi';
     } else if (hour < 15) {
       return 'Selamat Siang';
-    } else if  (hour < 18) {
+    } else if (hour < 18) {
       return 'Selamat Sore';
     } else {
       return 'Selamat Malam';
     }
+  }
+
+  final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Widget _buildHomeContent() {
@@ -53,26 +60,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontSize: 20,
                       fontFamily: 'ZenDots',
                       color: Colors.black,
-                      height: 0.0
+                      height: 0.0,
                     ),
                   ),
                   // const SizedBox(height: 1),
-                  Text (
+                  Text(
                     "Muhammad Ali R",
                     style: TextStyle(
                       fontSize: 20,
                       fontFamily: 'ZenDots',
                       color: Colors.black,
-                      height: 1.2
+                      height: 1.2,
                     ),
-                  )
-                ]
+                  ),
+                ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    "${DateTime.now().hour.toString().padLeft(2,'0')}.${DateTime.now().minute.toString().padLeft(2, "0")}",
+                    "${DateTime.now().hour.toString().padLeft(2, '0')}.${DateTime.now().minute.toString().padLeft(2, "0")}",
                     style: TextStyle(
                       fontSize: 70,
                       fontFamily: "GE Jarida",
@@ -80,12 +87,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.black,
                     ),
                   ),
-                ]
-              )
-            ]
-          )
-        ]
-      )
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -95,14 +102,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final double itemWidth = size.width / 5;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      body: _selectedIndex == 0
-          ? _buildHomeContent()
-          : _pages[_selectedIndex],
+      backgroundColor: const Color.fromARGB(255, 246, 246, 246),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() => _selectedIndex = index);
+        },
+        children: _buildPages(),
+      ),
 
       // Menggunakan Stack untuk menumpuk: Background Lukisan -> Label -> Lingkaran
       bottomNavigationBar: SizedBox(
-        height: 70, // Tinggi total area
+        height: 80, // Tinggi total area
         child: Stack(
           alignment: Alignment.bottomCenter,
           clipBehavior: Clip.none, // Izinkan lingkaran keluar area stack
@@ -114,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
               curve: Curves.easeOutQuint,
               builder: (context, animatedIndex, child) {
                 return CustomPaint(
-                  size: Size(size.width, 60), // Tinggi navbar putih
+                  size: Size(size.width, 70), // Tinggi navbar putih
                   painter: NavbarCurvePainter(
                     position: animatedIndex,
                     itemCount: 5,
@@ -132,7 +143,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(5, (index) {
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedIndex = index),
+                    onTap: () {
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    },
                     behavior: HitTestBehavior.opaque,
                     child: SizedBox(
                       width: itemWidth,
@@ -140,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           // Beri jarak sedikit dari atas agar pas dengan cekungan
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 10),
 
                           // PERBAIKAN 2: Menambahkan Ikon Unselected
                           Icon(
