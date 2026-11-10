@@ -39,6 +39,20 @@ class DatabaseHelper {
           category TEXT)
           ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+          CREATE TABLE transaction IF NOT EXIST (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            amount INTEGER,
+            isExpense INTEGER,
+            date TEXT,
+            category TEXT
+          )
+        ''');
+        }
+      },
     );
   }
 
@@ -74,7 +88,29 @@ class DatabaseHelper {
 
   Future<List<TransactionItem>> getTransactions() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('transactions', orderBy: "date DESC");
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      orderBy: "date DESC",
+    );
     return List.generate(maps.length, (i) => TransactionItem.fromMap(maps[i]));
-  } 
+  }
+
+  Future<void> _ensureTransactionTable(Database db) async {
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'",
+    );
+
+    if (result.isEmpty) {
+      await db.execute('''
+          CREATE TABLE transaction IF NOT EXIST (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            amount INTEGER,
+            isExpense INTEGER,
+            date TEXT,
+            category TEXT
+          )
+        ''');
+    }
+  }
 }

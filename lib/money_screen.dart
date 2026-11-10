@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:task_management/database_helper.dart';
@@ -34,9 +33,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
   bool isExpense = true;
+  bool _isSavingTransaction = false;
   DateTime _pickedDate = DateTime.now();
   List<FlSpot> _chartSpots = const [FlSpot(0, 0)];
   double _chartMaxY = 100000;
+  double _chartMinY = 0;
   double _chartMaxX = 6;
   String _selectedFilter = "Annually";
   List<String> _chartXLabels = [];
@@ -83,79 +84,97 @@ class _MoneyScreenState extends State<MoneyScreen> {
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
+    _categoryController.dispose();
     super.dispose();
   }
 
   Future<void> _loadData() async {
     setState(() => isLoading = true);
+    try {
+      final alldata = await DatabaseHelper().getTransactions();
 
-    final alldata = await DatabaseHelper().getTransactions();
+      alldata.sort((a, b) {
+        DateTime dateA = DateTime.parse(a.date);
+        DateTime dateB = DateTime.parse(b.date);
+        return dateA.compareTo(dateB);
+      });
 
-    alldata.sort((a, b) {
-      DateTime dateA = DateTime.parse(a.date);
-      DateTime dateB = DateTime.parse(b.date);
-      return dateA.compareTo(dateB);
-    });
+      int saldo = 0;
 
-    int Saldo = 0;
+      List<Map<String, dynamic>> riwayatSaldo = [];
 
-    List<Map<String, dynamic>> riwayatSaldo = [];
+      for (var item in alldata) {
+        if (item.isExpense) {
+          saldo -= item.amount;
+        } else {
+          saldo += item.amount;
+        }
 
-    for (var item in alldata) {
-      if (item.isExpense) {
-        Saldo -= item.amount;
-      } else {
-        Saldo += item.amount;
+        riwayatSaldo.add({'item': item, 'saldo_temporary': saldo});
       }
 
-      riwayatSaldo.add({'item': item, 'saldo_temporary': Saldo});
+      List<TransactionItem> listFilter = [];
+      DateTime now = DateTime.now();
+
+      for (var record in riwayatSaldo) {
+        TransactionItem item = record['item'];
+        DateTime itemDate = DateTime.parse(item.date);
+        bool isMatch = false;
+
+        if (_selectedFilter == "Daily") {
+          if (itemDate.year == now.year &&
+              itemDate.month == now.month &&
+              itemDate.day == now.day) {
+            isMatch = true;
+          }
+        } else if (_selectedFilter == "Weekly") {
+          DateTime startOfWeek = DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).subtract(Duration(days: now.weekday - 1));
+          DateTime endOfWeek = startOfWeek.add(const Duration(days: 7));
+          if (itemDate.isAfter(
+                startOfWeek.subtract(const Duration(seconds: 1)),
+              ) &&
+              itemDate.isBefore(endOfWeek)) {
+            isMatch = true;
+          }
+        } else {
+          if (itemDate.year == now.year) {
+            isMatch = true;
+          }
+        }
+
+        if (isMatch) {
+          listFilter.add(item);
+        }
+      }
+
+      setState(() {
+        _transactions = listFilter.reversed.toList();
+        totalBalance = saldo;
+        _chartXLabels.clear();
+        _generateChartData(riwayatSaldo);
+        isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal Memuat data: $e')));
+      }
+      setState(() {
+        _transactions = [];
+        totalBalance = 0;
+        _chartSpots = const [FlSpot(0, 0)];
+        _chartXLabels = [];
+        _chartMaxY = 100000;
+        _chartMinY = 0;
+      });
+    } finally {
+      setState(() => isLoading = false);
     }
-
-    List<TransactionItem> ListFilter = [];
-    DateTime now = DateTime.now();
-
-    for (var record in riwayatSaldo) {
-      TransactionItem item = record['item'];
-      DateTime itemDate = DateTime.parse(item.date);
-      bool isMatch = false;
-
-      if (_selectedFilter == "Daily") {
-        if (itemDate.year == now.year &&
-            itemDate.month == now.month &&
-            itemDate.day == now.day) {
-          isMatch = true;
-        }
-      } else if (_selectedFilter == "Weekly") {
-        DateTime startOfWeek = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ).subtract(Duration(days: now.weekday - 1));
-        DateTime endOfWeek = startOfWeek.add(const Duration(days: 7));
-        if (itemDate.isAfter(
-              startOfWeek.subtract(const Duration(seconds: 1)),
-            ) &&
-            itemDate.isBefore(endOfWeek)) {
-          isMatch = true;
-        }
-      } else {
-        if (itemDate.year == now.year) {
-          isMatch = true;
-        }
-      }
-
-      if (isMatch) {
-        ListFilter.add(item);
-      }
-    }
-
-    setState(() {
-      _transactions = ListFilter.reversed.toList();
-      totalBalance = Saldo;
-      _chartXLabels.clear();
-      _generateChartData(riwayatSaldo);
-      isLoading = false;
-    });
   }
 
   void _generateChartData(List<Map<String, dynamic>> riwayatSeluruhnya) {
@@ -400,13 +419,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
     _amountController.clear();
     _categoryController.clear();
     isExpense = true;
+    _isSavingTransaction = false;
     _pickedDate = DateTime.now();
+    String? formError;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (conte, setDialogState) {
+          builder: (dialogContext, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
@@ -514,6 +535,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
                     const SizedBox(height: 16),
 
+                    if (formError != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          formError!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
@@ -545,28 +575,70 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () async {
-                    if (_titleController.text.isNotEmpty &&
-                        _amountController.text.isNotEmpty &&
-                        _categoryController.text.isNotEmpty) {
-                      await DatabaseHelper().insertTransaction(
-                        TransactionItem(
-                          title: _titleController.text,
-                          amount: int.parse(_amountController.text),
-                          isExpense: isExpense,
-                          date: DateFormat(
-                            'yyyy-MM-dd HH:mm:ss',
-                          ).format(_pickedDate),
-                          category: _categoryController.text.isEmpty
-                              ? "Lainnya"
-                              : _categoryController.text,
-                        ),
-                      );
-                      if (context.mounted) Navigator.pop(context);
-                      _loadData();
-                      _showSuccessDialog();
-                    }
-                  },
+                  onPressed: _isSavingTransaction
+                      ? null
+                      : () async {
+                          final title = _titleController.text.trim();
+                          final amount = int.tryParse(
+                            _amountController.text.trim(),
+                          );
+                          if (title.isEmpty) {
+                            setDialogState(() {
+                              formError = "Nama transaksi wajib diisi.";
+                            });
+                            return;
+                          }
+                          if (amount == null || amount <= 0) {
+                            setDialogState(() {
+                              formError =
+                                  "Nominal harus berupa angka lebih dari 0.";
+                            });
+                            return;
+                          }
+                          if (isExpense && amount > totalBalance) {
+                            setDialogState(() {
+                              formError = "Saldo tidak cukup";
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            formError = null;
+                            _isSavingTransaction = true;
+                          });
+                          try {
+                            await DatabaseHelper().insertTransaction(
+                              TransactionItem(
+                                title: title,
+                                amount: amount,
+                                isExpense: isExpense,
+                                date: DateFormat(
+                                  'yyyy-MM-dd HH:mm:ss',
+                                ).format(_pickedDate),
+                                category:
+                                    _categoryController.text.trim().isEmpty
+                                    ? "Lainnya"
+                                    : _categoryController.text.trim(),
+                              ),
+                            );
+                            await _loadData();
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            if (mounted) _showSuccessDialog();
+                          } catch (e) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() {
+                                _isSavingTransaction = false;
+                              });
+                            }
+                          } finally {
+                            if (dialogContext.mounted) {
+                              setDialogState(() {
+                                _isSavingTransaction = false;
+                              });
+                            }
+                          }
+                        },
                   child: const Text(
                     "Save",
                     style: TextStyle(color: Colors.white),
@@ -658,7 +730,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF386BF6).withOpacity(0.3),
+                        color: const Color(0xFF386BF6).withValues(alpha: 0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -688,7 +760,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -706,7 +778,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         horizontalInterval: _chartMaxY / 4,
         getDrawingHorizontalLine: (value) {
           return FlLine(
-            color: Colors.grey.withOpacity(0.15),
+            color: Colors.grey.withValues(alpha: 0.15),
             strokeWidth: 1,
             dashArray: [5, 5],
           );
@@ -787,8 +859,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
             show: true,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF386BF6).withOpacity(0.25),
-                const Color(0xFF386BF6).withOpacity(0.0),
+                const Color(0xFF386BF6).withValues(alpha: 0.25),
+                const Color(0xFF386BF6).withValues(alpha: 0.0),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -813,8 +885,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
     }
 
     return SideTitleWidget(
-      child: Text(text, style: style),
       meta: meta,
+      child: Text(text, style: style),
     );
   }
 
