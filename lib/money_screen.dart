@@ -429,6 +429,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             return AlertDialog(
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
@@ -510,9 +511,27 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     TextField(
                       controller: _amountController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: "Nominal",
-                        border: OutlineInputBorder(),
+                      textAlign: TextAlign
+                          .start, // 1. Aligns the typed text to the right
+                      decoration: InputDecoration(
+                        label: Text(
+                          "Nominal",
+                          style: TextStyle(
+                            color: Colors.grey[900],
+                            fontWeight: FontWeight.w400,
+                            fontSize: 13,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                          vertical: 5.0,
+                        ),
                       ),
                     ),
 
@@ -520,9 +539,25 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
                     TextField(
                       controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: "Nama Transaksi",
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        label: Text(
+                          "Nama Transaksi",
+                          style: TextStyle(
+                            color: Colors.grey[900],
+                            fontWeight: FontWeight.w400,
+                            fontSize: 13,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                          vertical: 5.0,
+                        ),
                       ),
                     ),
 
@@ -530,10 +565,80 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
                     TextField(
                       controller: _categoryController,
-                      decoration: const InputDecoration(labelText: "Category"),
+                      textAlign: TextAlign
+                          .start, // 1. Aligns the typed text to the right
+                      decoration: InputDecoration(
+                        label: Text(
+                          "Category",
+                          style: TextStyle(
+                            color: Colors.grey[900],
+                            fontWeight: FontWeight.w400,
+                            fontSize: 13,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                          vertical: 5.0,
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 16),
+
+                    Container(
+                      // 1. Replicate the TextField design here
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: ListTile(
+                        // 2. Center content vertically to match TextField height feeling
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                          vertical: 5.0,
+                        ),
+
+                        leading: const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF386BF6),
+                        ),
+
+                        title: Transform.translate(
+                          offset: const Offset(
+                            -8,
+                            0,
+                          ), // 3. Optional: Pulls text slightly closer to leading icon
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // 4. Replicates the small floating label floating text look
+                              Text(
+                                "Date",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 0),
+                              Text(
+                                DateFormat('yyyy-MM-dd').format(_pickedDate),
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ),
+                        onTap: () async {
+                          await _selectDate(context, setDialogState);
+                        },
+                      ),
+                    ),
 
                     if (formError != null)
                       Align(
@@ -543,20 +648,6 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
-
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        "Date: ${DateFormat('yyyy-MM-dd').format(_pickedDate)}",
-                      ),
-                      trailing: const Icon(
-                        Icons.calendar_today,
-                        color: Color(0xFF386BF6),
-                      ),
-                      onTap: () async {
-                        await _selectDate(context, setDialogState);
-                      },
-                    ),
                   ],
                 ),
               ),

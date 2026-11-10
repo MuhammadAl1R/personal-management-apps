@@ -31,6 +31,7 @@ class _TaskScreenState extends State<TaskScreen> {
     final tasks = await DatabaseHelper().getTasksByDate(
       DateFormat('yyyy-MM-dd').format(_selectedDate),
     );
+    if (!mounted) return;
     setState(() {
       _tasks = tasks;
       _isLoading = false;
@@ -48,6 +49,7 @@ class _TaskScreenState extends State<TaskScreen> {
       lastDate: DateTime(2100),
     );
     if (picked != null && picked != _pickedDate) {
+      if (!mounted) return;
       setState(() {
         _pickedDate = picked;
       });
@@ -60,6 +62,7 @@ class _TaskScreenState extends State<TaskScreen> {
       initialTime: _pickedTime,
     );
     if (picked != null && picked != _pickedTime) {
+      if (!mounted) return;
       setState(() {
         _pickedTime = picked;
       });
@@ -153,9 +156,10 @@ class _TaskScreenState extends State<TaskScreen> {
                       );
                       _titleController.clear();
                       _descriptionController.clear();
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-                      _loadTasks(); // Refresh list after adding
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                      if (mounted) _loadTasks(); // Refresh list after adding
                     }
                   },
                   child: const Text(
