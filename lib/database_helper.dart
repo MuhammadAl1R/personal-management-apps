@@ -113,4 +113,14 @@ class DatabaseHelper {
         ''');
     }
   }
+
+  Future<void> updateTaskIsDone(int id, bool isDone) async {
+    final db = await database;
+    await db.update(
+      'tasks',
+      {'isDone': isDone ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }

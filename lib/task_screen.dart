@@ -302,11 +302,13 @@ class _TaskScreenState extends State<TaskScreen> {
                             margin: const EdgeInsets.only(bottom: 16),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: task.isExpanded
+                                  ? const Color(0xFF386BF6)
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.03),
+                                  color: Colors.black.withValues(alpha: 0.03),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -329,20 +331,26 @@ class _TaskScreenState extends State<TaskScreen> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 16,
+                                              fontSize: 20,
                                               fontWeight: FontWeight.bold,
                                               decoration: task.isDone
                                                   ? TextDecoration.lineThrough
                                                   : null,
                                               color: task.isDone
-                                                  ? Colors.grey
-                                                  : Colors.black87,
+                                                  ? (task.isExpanded
+                                                        ? Colors.white
+                                                        : Colors.grey)
+                                                  : (task.isExpanded
+                                                        ? Colors.white
+                                                        : Colors.black),
                                             ),
                                           ),
                                           Text(
                                             task.time,
                                             style: TextStyle(
-                                              color: Colors.grey.shade500,
+                                              color: task.isExpanded
+                                                  ? Colors.white
+                                                  : Colors.grey,
                                               fontSize: 13,
                                             ),
                                           ),
@@ -351,11 +359,35 @@ class _TaskScreenState extends State<TaskScreen> {
                                     ),
                                     GestureDetector(
                                       onTap: () async {
-                                        task.isDone = !task.isDone;
-                                        await DatabaseHelper().updateTask(task);
-                                        // _loadTasks(); // Opsional: reload dari DB untuk update UI
-                                        // Atau cukup setState lokal jika update DB sukses change
-                                        setState(() {});
+                                        if (task.id == null) return;
+                                        final newIsDone = !task.isDone;
+                                        try {
+                                          await DatabaseHelper()
+                                              .updateTaskIsDone(
+                                                task.id!,
+                                                newIsDone,
+                                              );
+                                          if (!mounted) return;
+                                          setState(
+                                            () => task.isDone = newIsDone,
+                                          );
+                                        } catch (e) {
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Gagal update task: $e',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        // task.isDone = !task.isDone;
+                                        // await DatabaseHelper().updateTask(task);
+                                        // // _loadTasks(); // Opsional: reload dari DB untuk update UI
+                                        // // Atau cukup setState lokal jika update DB sukses change
+                                        // setState(() {});
                                       },
                                       child: Container(
                                         width: 26,
@@ -364,18 +396,24 @@ class _TaskScreenState extends State<TaskScreen> {
                                           shape: BoxShape.circle,
                                           border: Border.all(
                                             color: task.isDone
-                                                ? const Color(0xFF386BF6)
+                                                ? (task.isExpanded
+                                                      ? Colors.white
+                                                      : const Color(0xFF386BF6))
                                                 : Colors.grey.shade300,
                                             width: 2,
                                           ),
                                           color: task.isDone
-                                              ? const Color(0xFF386BF6)
+                                              ? (task.isExpanded
+                                                    ? Colors.white
+                                                    : const Color(0xFF386BF6))
                                               : Colors.transparent,
                                         ),
                                         child: task.isDone
-                                            ? const Icon(
+                                            ? Icon(
                                                 Icons.check,
-                                                color: Colors.white,
+                                                color: (task.isExpanded
+                                                    ? const Color(0xFF386BF6)
+                                                    : Colors.white),
                                                 size: 16,
                                               )
                                             : null,
@@ -386,12 +424,12 @@ class _TaskScreenState extends State<TaskScreen> {
                                 // Bagian Deskripsi yang muncul saat di-klik
                                 if (task.isExpanded)
                                   Padding(
-                                    padding: const EdgeInsets.only(top: 16),
+                                    padding: const EdgeInsets.only(top: 10),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Divider(color: Colors.grey[200]),
+                                        // Divider(color: Colors.blue[200]),
                                         const Text(
                                           "Description:",
                                           style: TextStyle(
@@ -403,7 +441,8 @@ class _TaskScreenState extends State<TaskScreen> {
                                         Text(
                                           task.description,
                                           style: TextStyle(
-                                            color: Colors.grey[600],
+                                            color: Colors.white,
+                                            fontSize: 14,
                                           ),
                                         ),
                                       ],
