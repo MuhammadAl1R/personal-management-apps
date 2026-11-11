@@ -376,9 +376,83 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ),
                     SizedBox(height: 16),
                     _buildChartSection(),
+                    SizedBox(height: 24),
+                    _buildTransactionHistory(),
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionHistory() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Riwayat Transaksi",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 10),
+        if (_transactions.isEmpty)
+          Text(
+            "Belum ada Transaksi",
+            style: TextStyle(color: Colors.grey[100]),
+          ),
+        ..._transactions.map((t) => _buildTransactionTile(t)),
+      ],
+    );
+  }
+
+  Widget _buildTransactionTile(TransactionItem t) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            child: Icon(
+              t.isExpense ? Icons.money_off : Icons.attach_money,
+              color: t.isExpense
+                  ? Colors.black.withValues(alpha: 0.5)
+                  : Colors.green.withValues(alpha: 0.5),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.title, style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text(
+                  "${t.category} • ${DateFormat('dd MMM yyyy').format(DateTime.parse(t.date))}",
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            "${t.isExpense ? '-' : '+'}${formatRupiah(t.amount)}",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: t.isExpense ? Colors.black : Colors.green,
+            ),
+          ),
+        ],
       ),
     );
   }
