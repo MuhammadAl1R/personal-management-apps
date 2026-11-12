@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:sqflite/sqlite_api.dart';
+import 'package:task_management/database_helper.dart';
 import 'package:task_management/money_screen.dart';
 import 'task_screen.dart';
 
@@ -41,6 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  int _todayTotal = 0;
+  int _todayDone = 0;
+  bool _isLoadingProgress = true;
+
+  Future<void> _loadTodayProgress() async {
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final tasks = await DatabaseHelper().getTasksByDate(today);
+
+    if (!mounted) return;
+    setState(() {
+      _todayTotal = tasks.length;
+      _todayDone = tasks.where((t) => t.isDone).length;
+      _isLoadingProgress = false;
+    });
   }
 
   Widget _buildHomeContent() {
@@ -91,6 +110,57 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _primaryBlue,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Progress Hari Ini",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "$_todayDone / $_todayTotal Task",
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: _todayTotal == 0 ? 0 : _todayDone / _todayTotal,
+                    minHeight: 10,
+                    backgroundColor: Colors.white24,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _todayTotal == 0
+                      ? "Belum ada task untuk hari ini"
+                      : _todayDone == _todayTotal
+                      ? "Semua task selesai!"
+                      : "Sisa ${_todayTotal - _todayDone} task lagi",
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -107,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
         controller: _pageController,
         onPageChanged: (index) {
           setState(() => _selectedIndex = index);
+          if (index == 0) _loadTodayProgress();
         },
         children: _buildPages(),
       ),
